@@ -61,7 +61,7 @@ def xml_to_matrix(xml_content):
     return final_matrix
 
 
-def extract_results_woemp_from_xls(matrix):
+def extract_results_woemp_from_xls(matrix, custom_weight):
     results = []
     for i in tests:
         test_found = False
@@ -319,7 +319,7 @@ def process_xml_file(file_path, file_name):
 
                     print(f"Użyto masy ciała: {custom_weight}kg")
 
-                    results_woemp = extract_results_woemp_from_xls(matrix)
+                    results_woemp = extract_results_woemp_from_xls(matrix, custom_weight)
 
                     # Save the weight back to the file in cell C43
                     existing_ws['C39'] = custom_weight
@@ -449,7 +449,7 @@ def process_xml_file(file_path, file_name):
 
                     print(f"Użyto masy ciała: {custom_weight}kg")
 
-                    results_woemp = extract_results_woemp_from_xls(matrix)
+                    results_woemp = extract_results_woemp_from_xls(matrix, custom_weight)
 
                     # Save the weight back to the file in cell C43
                     ws['C39'] = custom_weight
