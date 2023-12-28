@@ -11,16 +11,17 @@ from tkinter import filedialog, simpledialog
 
 # source_directory = r"N:\NEFRODOR\Irlik\Tutaj zapisywać pobrane badania w formacie xml"
 # destination_directory = r"N:\NEFRODOR\Irlik\Wyniki testowe"
-destination_folder_path = r"N:\NEFRODOR\Pacjenci dializowani"
+desktop_path = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+dializy_folder = os.path.join(desktop_path, 'Dializy')
 
 
-def get_custom_weight(saved_weight):
+def get_custom_weight(saved_weight, patient_name):
     if saved_weight:
-        message = f"Naciśnij Enter, aby użyć zapisanej masy ciała {saved_weight}kg, lub wprowadź nową wartość masy ciała: "
+        message = f"Zapisana masa ciała {saved_weight}kg, wprowadź wartość masy ciała: "
     else:
-        message = "Naciśnij Enter, aby użyć domyślnej masy ciała 70kg, lub wprowadź nową wartość masy ciała: "
+        message = "Brak zapisanej masy ciała. Wprowadź wartość masy ciała: "
 
-    return simpledialog.askfloat("Custom Weight", message)
+    return simpledialog.askfloat(patient_name, message)
 
 
 def try_float(value):
@@ -67,6 +68,7 @@ def extract_results_woemp_from_xls(matrix, custom_weight):
         test_found = False
         for row in matrix:
             if row[0] == i:
+                print(i)
                 results.append(row[3:10][::-1])  # Reverse the list before appending
                 test_found = True
         if not test_found:
@@ -103,7 +105,6 @@ def extract_results_woemp_from_xls(matrix, custom_weight):
     insert_index_kt_v = tests_P.index('Kt/V (orient.)') - 1
 
     try:
-
         post_urea = float(results_woemp[urea_row][1])
         pre_urea = float(results_woemp[urea_row][0])
         weight = custom_weight
@@ -111,7 +112,6 @@ def extract_results_woemp_from_xls(matrix, custom_weight):
         # Define UF and t
         uf = 2
         t = 4
-
         # Calculate Kt/V
         R = post_urea / pre_urea
         kt_v = -math.log(R - 0.008 * t) + (4 - 3.5 * R) * (uf / weight)
@@ -170,8 +170,7 @@ def compare_to_reference_range(value, normal_range_str):
         try:
             value = float(value)
         except ValueError:
-            pass
-
+            return "invalid"
     if isinstance(lower_limit, str) or isinstance(upper_limit, str):
         return 'within' if value == normal_range_str else 'higher'
     elif value < lower_limit:
@@ -210,7 +209,7 @@ tests = ['Mocznik w surowicy', 'Kt/V (orientacyjnie)', 'Kt/V (dokładne)', 'Pota
 
 tests_P = [row[0] for row in parameters]
 units = [row[1] for row in parameters]
-normal = [row[2] for row in parameters]
+normal = [row[2] for row in parameters] #curr length 36
 
 # List of tests for which manual completion is required
 manual_completion_tests = ['Kt/V (dokł.)', 'ESA', 'Venofer', 'Calperos']
@@ -221,7 +220,7 @@ manual_completion_indexes = [i for i, row in enumerate(parameters) if row[0] in 
 
 # Loop through files in the source_directory
 # Check if the file has a .xml extension
-def process_xml_file(file_path, file_name):
+def process_xml_file(surname, file_path): #surenames
     # File is an XML file, process it
     # Read the XML file with the specified encoding
     try:
@@ -230,11 +229,10 @@ def process_xml_file(file_path, file_name):
         # Convert the XML content to a matrix
         matrix = xml_to_matrix(xml_content)
         date = matrix[0][3]
-
         # Convert the date format to DD.MM.YYYY
         date_obj = datetime.strptime(date, '%Y-%m-%d')
         formatted_date = date_obj.strftime('%d.%m.%Y')
-
+        print("otworzono: ",file_path)
         # Your list of column headings
         column_headings = ['Parametr', 'Jedn.', 'Norma', 'Wyniki']
 
@@ -276,37 +274,26 @@ def process_xml_file(file_path, file_name):
 
         file_found = False
 
-        # Loop through the folders in the destination folder path
-        for folder in os.listdir(destination_folder_path):
+        surname_folder = os.path.join(dializy_folder, surname)
+        if not os.path.exists(surname_folder):
+            os.makedirs(surname_folder)
+        if True:
+            print("szukam folderu")
             # Extract the last name from the folder name
-            folder_last_name = unidecode(folder.split()[0].lower())
-
-            # alternatywna opcja z uwzględnieniem imienia lub nie
-            # folder_last_name = unidecode(folder.lower())
-            # if xls_title.lower() in folder_last_name:
-
-            # Get the title of the xls file
-            xls_title = unidecode(os.path.splitext(file_name)[0].lower())
-
-            # Check if the folder name matches with the xls title
-            if folder_last_name in xls_title.lower():
-                file_found = True
-                # Define the xlsx file name and path
+            if True:
                 xlsx_file_name = "Wyniki.xlsx"
-                xlsx_file_path = os.path.join(destination_folder_path, folder, xlsx_file_name)
-
+                xlsx_file_path = os.path.join(surname_folder, xlsx_file_name)
                 # Check if the xlsx file exists
                 if os.path.exists(xlsx_file_path):
+                    label.config(text="Znaleziono plik: " + xlsx_file_name)
                     # Load the existing workbook
                     existing_wb = load_workbook(xlsx_file_path)
                     existing_ws = existing_wb.active
 
-                    # Try to read the saved weight from the file
-                    saved_weight = existing_ws['C43'].value
-
+                    # Try to read the saved weight from the file (i dont know why it is in there (maybe something is pasted idk idk sr))
+                    saved_weight = existing_ws['C47'].value
                     # Check if there is a saved weight and offer choices
-                    custom_weight = get_custom_weight(saved_weight)
-
+                    custom_weight = get_custom_weight(saved_weight, surname)
                     # Use the saved/default weight if Enter is pressed or a new weight is not provided
                     if not custom_weight:
                         custom_weight = saved_weight if saved_weight else 70
@@ -322,7 +309,7 @@ def process_xml_file(file_path, file_name):
                     results_woemp = extract_results_woemp_from_xls(matrix, custom_weight)
 
                     # Save the weight back to the file in cell C43
-                    existing_ws['C39'] = custom_weight
+                    existing_ws['C43'] = custom_weight
 
                     # Find the last column with "Wyniki"
                     last_col_with_wyniki = None
@@ -343,7 +330,7 @@ def process_xml_file(file_path, file_name):
                         cell = existing_ws.cell(row=4, column=col)
                         if cell.value == formatted_date:
                             last_col_with_wyniki = col - 1
-                            print(f"Zaktualizowano badania {folder.split('.')[0]} wykonane dnia {formatted_date}")
+                            print(f"Zaktualizowano badania {surname_folder.split('.')[0]} wykonane dnia {formatted_date}")
                             same_date = True
 
                     # Update the fifth row with the new heading 'Wyniki'
@@ -419,8 +406,10 @@ def process_xml_file(file_path, file_name):
                     # Save the updated workbook
                     existing_wb.save(xlsx_file_path)
                     if not same_date:
-                        print(f"Dodano nowe badania {folder.split('.')[0]} wykonane dnia {formatted_date}")
-                    os.remove(file_path)
+                        print(f"Dodano nowe badania {surname_folder.split('.')[0]} wykonane dnia {formatted_date}")
+                    
+                    
+                    # os.remove(file_path)
 
                     # Save the workbook to a file (test)
                     # new_file_name = os.path.splitext(file_name)[0] + ".xlsx"
@@ -428,15 +417,13 @@ def process_xml_file(file_path, file_name):
                     # existing_wb.save(new_file_path)
                 else:
                     # Create a new workbook and select the active worksheet
+                    print("nie ma takie cos")
                     wb = Workbook()
                     ws = wb.active
-
                     # Try to read the saved weight from the file
                     saved_weight = ws['C43'].value
-
                     # Check if there is a saved weight and offer choices
-                    custom_weight = get_custom_weight(saved_weight)
-
+                    custom_weight = get_custom_weight(saved_weight, surname)
                     # Use the saved/default weight if Enter is pressed or a new weight is not provided
                     if not custom_weight:
                         custom_weight = saved_weight if saved_weight else 70
@@ -452,7 +439,7 @@ def process_xml_file(file_path, file_name):
                     results_woemp = extract_results_woemp_from_xls(matrix, custom_weight)
 
                     # Save the weight back to the file in cell C43
-                    ws['C39'] = custom_weight
+                    ws['C43'] = custom_weight
 
                     # Set the column width
                     for i in range(len(column_headings)):
@@ -535,9 +522,8 @@ def process_xml_file(file_path, file_name):
                             # skip writing the value to avoid overwriting manual completions
                             if i in manual_completion_indexes and j == 0:
                                 continue
-
-                            comparison_result = compare_to_reference_range(value, normal[i])
-
+                            if i < 36:
+                                comparison_result = compare_to_reference_range(value, normal[i])
                             if comparison_result == 'lower':
                                 cell.font = Font(color="0000FF", bold=True)
                                 cell.value = f"{value} ↓"
@@ -594,7 +580,7 @@ def process_xml_file(file_path, file_name):
                     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=num_columns)
                     cell.alignment = center_alignment
                     # Add patient's name to the third row
-                    ws.cell(row=3, column=1).value = folder
+                    ws.cell(row=3, column=1).value = surname
                     # Set the font properties for the patient's name
                     cell.font = Font(size=14, bold=True)
 
@@ -613,11 +599,11 @@ def process_xml_file(file_path, file_name):
 
                     # Save the new xlsx file to the matching folder
                     wb.save(xlsx_file_path)
-                    os.remove(file_path)
-                    print(f"Dodano nowy plik \"Wyniki\" dla {folder.split('.')[0]} z badaniami wykonanymi dnia "
+                    # os.remove(file_path)
+                    print(f"Dodano nowy plik \"Wyniki\" dla {surname_folder.split('.')[0]} z badaniami wykonanymi dnia "
                           f"{formatted_date}")
 
-                    break
+
     except ET.ParseError as e:
         print(f'Error parsing XML file {file_path}: {e}')
     except UnicodeError as e:
@@ -629,17 +615,20 @@ def process_xml_file(file_path, file_name):
 
 
 def option1_selected():
-    label.config(text="Tu bedzie miejsce do wgrywania plików")
+    file_paths = ""
+    surenames = []
+    label.config(text="Wybierz pliki do wgrania")
     file_paths = filedialog.askopenfilenames()
     if file_paths:
-        print("Selected files:")
+        information_text = "Wgrano pliki:\n"
         for file_path in file_paths:
             file_name = os.path.basename(file_path)
-            process_xml_file(file_path, file_name)
+            surenames.append(file_name.split('.')[0])
+            information_text+=file_name+"\n"
+        label.config(text=information_text)
+        for idx, surename in enumerate(surenames):
+            process_xml_file(surename, file_paths[idx])
 
-
-def option2_selected():
-    label.config(text="Tu bedzie miejsce do pobierania plików")
 
 
 root = tk.Tk()
@@ -655,17 +644,16 @@ option1 = tk.Label(sidebar, text="Wybierz pliki", bg='lightgrey', padx=10, pady=
 option1.pack()
 option1.bind("<Button-1>", lambda event: option1_selected())
 
-option2 = tk.Label(sidebar, text="Pobierz pliki", bg='lightgrey', padx=10, pady=5, cursor='hand2')
-option2.pack()
-option2.bind("<Button-1>", lambda event: option2_selected())
-
 # Main content area
 main_content = tk.Frame(root, width=400, height=400, bg='white')
 main_content.pack_propagate(False)
 main_content.pack(expand=True, fill=tk.BOTH)
 
 # Label to display selected option
-label = tk.Label(main_content, text="Wybierz opcję z menu", padx=10, pady=10)
+label = tk.Label(main_content, text="Wybierz opcję z menu", padx=70, pady=30)
+label2 = tk.Label(main_content, text="Label 3", font=("Times",30,"bold"), bg='green')
+
 label.pack()
+label2.pack()
 
 root.mainloop()
