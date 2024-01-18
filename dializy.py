@@ -622,7 +622,8 @@ def option1_selected():
         label.config(text=information_text)
         for idx, surename in enumerate(surenames):
             process_xml_file(surename, file_paths[idx])
-
+            information_text = "Wyniki " + surename + "są dostępne w folderze."
+            label.config(text=information_text)
 
 
 root = tk.Tk()
